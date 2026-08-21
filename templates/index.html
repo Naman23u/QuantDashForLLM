@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantDash - Strategy Factory</title>
+    <link rel="icon" href="data:,">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=43">
+    <!-- Plotly.js for advanced charts -->
+    <script src="{{ url_for('static', filename='plotly-2.32.0.min.js') }}"></script>
+</head>
+
+<body class="drawer-open">
+    <div class="sidebar" id="sidebar">
+        <h2>QuantDash</h2>
+        <p class="subtitle">Autonomous Strategy Factory</p>
+
+        <div class="control-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label style="margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">Strategy Script</label>
+                <button id="btnRefreshStrategies" class="btn secondary" style="padding: 2px 7px; font-size: 11px; border-radius: 4px; height: 22px; line-height: 1;" title="Refresh strategy folder">↻</button>
+            </div>
+            <select id="strategyDropdown" class="btn secondary"
+                style="width: 100%; margin-bottom: 4px; font-size: 12px; padding: 7px 8px; text-align: left; background-color: var(--panel-bg-2); border: 1px solid var(--border-strong); cursor: pointer; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                <option value="">Loading Strategies...</option>
+            </select>
+            <input type="text" id="scriptPath" readonly placeholder="No script selected"
+                style="font-size: 10px; background-color: transparent; border: none; padding: 0; color: var(--accent); width: 100%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+        </div>
+
+        <div class="control-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label style="margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">Data Source</label>
+                <button id="btnRefreshData" class="btn secondary" style="padding: 2px 7px; font-size: 11px; border-radius: 4px; height: 22px; line-height: 1;" title="Refresh market data folder">↻</button>
+            </div>
+            <select id="dataDropdown" class="btn secondary"
+                style="width: 100%; margin-bottom: 4px; font-size: 12px; padding: 7px 8px; text-align: left; background-color: var(--panel-bg-2); border: 1px solid var(--border-strong); cursor: pointer; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                <option value="">Loading Market Data...</option>
+            </select>
+            <input type="text" id="dataPath" readonly placeholder="No data selected"
+                style="font-size: 10px; background-color: transparent; border: none; padding: 0; color: var(--accent); width: 100%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+        </div>
+
+        <div class="control-group" id="quarterRangeGroup" style="margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label style="margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">Testing Period</label>
+                <span id="quarterCountBadge" style="font-size: 10px; color: var(--cyan); font-weight: 700; background: rgba(56, 189, 248, 0.12); padding: 2px 6px; border-radius: 4px; font-family: monospace;">--</span>
+            </div>
+            
+            <div style="background-color: var(--panel-bg-2); border: 1px solid var(--border-strong); border-radius: 6px; padding: 10px 12px; margin-bottom: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Start Quarter</span>
+                        <span id="startQuarterLabel" style="font-size: 13px; font-weight: 700; color: #fff; font-family: monospace;">2018 (Q1)</span>
+                    </div>
+                    <div style="height: 2px; flex: 1; margin: 0 10px; background: rgba(255,255,255,0.08); position: relative; border-radius: 1px;"></div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                        <span style="font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">End Quarter</span>
+                        <span id="endQuarterLabel" style="font-size: 13px; font-weight: 700; color: #fff; font-family: monospace;">2026 (Q3)</span>
+                    </div>
+                </div>
+
+                <!-- Dual Range Slider -->
+                <div style="position: relative; height: 20px; display: flex; align-items: center; margin: 4px 0;">
+                    <div id="quarterSliderTrack" style="position: absolute; width: 100%; height: 6px; background: rgba(255,255,255,0.12); border-radius: 3px;">
+                        <div id="quarterSliderHighlight" style="position: absolute; height: 100%; background: var(--accent); border-radius: 3px; left: 0%; right: 0%;"></div>
+                    </div>
+                    <input type="range" id="quarterStartRange" min="0" max="0" value="0" step="1" class="dual-range-input">
+                    <input type="range" id="quarterEndRange" min="0" max="0" value="0" step="1" class="dual-range-input">
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-dim); margin-top: 2px; font-family: monospace;">
+                    <span id="sliderMinLabel">--</span>
+                    <span id="sliderMaxLabel">--</span>
+                </div>
+            </div>
+            
+            <button id="btnSavePreset" class="btn secondary"
+                style="width: 100%; margin-top: 10px; margin-bottom: 10px; font-size: 12px; padding: 8px;">Save Layout</button>
+
+            <div
+                style="display: flex; flex-direction: column; gap: 5px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                <select id="presetDropdown" class="btn secondary"
+                    style="width: 100%; font-size: 12px; padding: 8px; text-align: left;"></select>
+                <div style="display: flex; gap: 5px;">
+                    <button id="btnLoadPreset" class="btn secondary"
+                        style="flex: 1; font-size: 12px; padding: 8px;">Load</button>
+                    <button id="btnDeletePreset" class="btn secondary"
+                        style="flex: 1; font-size: 12px; padding: 8px; color: #ff6b6b; border-color: #ff6b6b;">Delete</button>
+                </div>
+            </div>
+
+            <button id="btnRun" class="btn primary" style="width: 100%; margin-top: 15px;">Run Backtest</button>
+        </div>
+
+        <div class="control-group params-container" id="paramsContainer">
+            <h3>Parameters</h3>
+            <p class="empty-text">Select a script to load parameters.</p>
+        </div>
+    </div>
+
+    <div class="main-content" id="mainContent" style="display: flex; flex-direction: column;">
+        <div class="header"
+            style="position: sticky; top: 0; z-index: 100; background-color: var(--bg-color); margin-bottom: 10px; display: flex; align-items: center; gap: 15px; padding: 2rem 0 1rem 0; margin-top: 0;">
+            <div class="tabs-dropdown" style="margin-bottom: 0;">
+                <button class="hamburger-btn" onclick="toggleTabsDropdown()" style="border: none; padding: 0.5rem;">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div id="tabsDropdownContent" class="dropdown-content show">
+                    <button class="tab-link" onclick="toggleSidebar()">Parameters</button>
+                    <button class="tab-link active" onclick="openTab(event, 'all', 'Strategy Overview')">Strategy
+                        Overview</button>
+                    <button class="tab-link" onclick="openTab(event, 'tabEquity', 'Equity Curves')">Equity
+                        Curves</button>
+                    <button class="tab-link" onclick="openTab(event, 'tabHeatmap', 'Monthly Heatmap')">Monthly
+                        Heatmap</button>
+                    <button class="tab-link" onclick="openTab(event, 'tabMatrix', 'Stats Matrix')">Stats Matrix</button>
+                    <button class="tab-link" onclick="openTab(event, 'tabBestWorst', 'Best & Worst Moments')">Best &
+                        Worst Moments</button>
+                    <button class="tab-link"
+                        onclick="openTab(event, 'tabTradingTime', 'Trading Time Distribution')">Trading Time
+                        Distribution</button>
+                    <button class="tab-link"
+                        onclick="openTab(event, 'tabDayOfWeek', 'Return by Day of the Week')">Return by Day of the
+                        Week</button>
+                    <button class="tab-link"
+                        onclick="openTab(event, 'tabDrawdownAnalysis', 'Drawdown Analysis')">Drawdown Analysis</button>
+                    <button class="tab-link" onclick="openTab(event, 'tabMonteCarlo', 'Path Robustness (Bootstrap)')">Path Robustness (Bootstrap)</button>
+
+                    <button class="tab-link"
+                        onclick="openTab(event, 'tabDistribution', 'Distribution Analysis')">Distribution
+                        Analysis</button>
+                    <button class="tab-link"
+                        onclick="openTab(event, 'tabRobustness', 'Parameter Shift Testing')">Parameter Shift
+                        Testing</button>
+                    <button class="tab-link"
+                        onclick="openTab(event, 'tabMassBacktest', 'Optimization Settings')">Optimization
+                        Settings</button>
+                    <button class="tab-link"
+                        onclick="openTab(event, 'tabWalkForward', 'Walk Forward Analysis')">Walk Forward Analysis</button>
+                    <button class="tab-link" onclick="openTab(event, 'tabPermutation', 'Data Permutation Test')">Data
+                        Permutation Test</button>
+                    <button class="tab-link"
+                        onclick="openTab(event, 'tabMultiMarket', 'Multi-Market Comparison')">Multi-Market
+                        Comparison</button>
+                </div>
+            </div>
+            <h1 style="margin: 0; flex: 1;">Strategy Overview <span id="activeTabName"
+                    style="font-size: 1.2rem; color: var(--text-secondary); font-weight: normal; margin-left: 10px;"></span>
+            </h1>
+            <span class="symbol-pill" id="symbolPill">—</span>
+
+        </div>
+
+        <div class="metrics-grid" id="metricsGrid">
+            <!-- Metrics populated by JS -->
+        </div>
+
+        <!-- Tab content containers -->
+        <div id="tabEquity" class="tab-content" style="display: flex; flex-direction: column;">
+            <div id="equityControls" class="config-panel"
+                style="display: none; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+                <div class="btn-group">
+                    <button class="btn primary" id="btnShowAll">All Trades</button>
+                    <button class="btn" id="btnShowLong">Long Trades</button>
+                    <button class="btn" id="btnShowShort">Short Trades</button>
+                </div>
+            </div>
+            <div class="chart-container" id="plotEquityMain"></div>
+        </div>
+
+        <div id="tabRobustness" class="tab-content">
+            <div class="config-panel" style="justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--text-primary);">Parameter Shift Testing</h3>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="font-size: 0.85rem; color: var(--text-secondary);" for="robustnessShiftPct">Shift
+                        &plusmn;</label>
+                    <input type="number" id="robustnessShiftPct" value="25" min="1" max="200" step="1"
+                        style="width: 70px; background-color: var(--bg-color); color: var(--text-primary); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 6px;">
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">%</span>
+                    <button id="btnRunRobustness" class="btn primary" style="width: auto; margin: 0;">Run Stress
+                        Test</button>
+                </div>
+            </div>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.85rem;">Shifts tunable strategy
+                parameters up and down by the chosen %. Mechanical constants (tick size, commission, risk sizing, point
+                value, rates, max trades/day) are never shifted.</p>
+            <div class="table-container">
+                <table id="robustnessTable">
+                    <thead>
+                        <tr>
+                            <th>Variation</th>
+                            <th>CAGR (%)</th>
+                            <th>Max DD (%)</th>
+                            <th>Calmar Ratio</th>
+                            <th>Profit Factor</th>
+                            <th>Sharpe Ratio</th>
+                            <th>Sortino Ratio</th>
+                            <th>P-Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tabMassBacktest" class="tab-content">
+            <h3 style="margin-top: 0; color: var(--text-primary); text-align: center; margin-bottom: 15px;">Set
+                Optimizable Inputs</h3>
+            <div class="table-container">
+                <table id="optimizationInputTable" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="optSelectAll"
+                                    checked></th>
+                            <th>Input Name</th>
+                            <th>Current Value</th>
+                            <th>Start Value</th>
+                            <th>End Value</th>
+                            <th>Step</th>
+                            <th>Step Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 20px;">
+                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                    Total Combinations: <strong id="optTotalCombos" style="color: var(--text-primary);">0</strong>
+                </div>
+                <button id="btnRunOptimization" class="btn primary">Run Optimization</button>
+            </div>
+
+            <div id="optSummaryPanel"
+                style="display: none; background-color: var(--surface-color); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <label
+                            style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Metric</label>
+                        <select id="optSummaryMetric" class="btn secondary" style="padding: 6px; font-size: 13px;">
+                            <option value="Profit Factor">Profit Factor</option>
+                            <option value="Sharpe">Sharpe</option>
+                            <option value="Sortino">Sortino</option>
+                            <option value="Calmar Ratio">Calmar Ratio</option>
+                            <option value="CAGR (%)">CAGR (%)</option>
+                            <option value="Return (%)">Return (%)</option>
+                            <option value="Max DD (%)">Max DD (%)</option>
+                            <option value="P-Value (%)">P-Value (%)</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <label
+                            style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Condition</label>
+                        <select id="optSummaryOperator" class="btn secondary" style="padding: 6px; font-size: 13px;">
+                            <option value=">">></option>
+                            <option value=">=">>=</option>
+                            <option value="&lt;">&lt;</option>
+                            <option value="&lt;=">&lt;=</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <label
+                            style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Threshold</label>
+                        <input type="number" id="optSummaryThreshold" value="1.0" step="0.1"
+                            style="background-color: var(--bg-color); color: var(--text-primary); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 6px; width: 80px; font-size: 13px;">
+                    </div>
+                    <div style="margin-left: auto; text-align: right;">
+                        <div
+                            style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 5px;">
+                            Pass Rate</div>
+                        <div id="optSummaryResult" style="font-size: 16px; font-weight: 600; color: var(--success);">0/0
+                            (0%)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="optHeatmapContainer" style="margin-bottom: 20px; display: none;"></div>
+
+            <div class="table-container" style="margin-top: 15px;">
+                <table id="optimizationResultsTable" style="width: 100%;">
+                    <thead>
+                        <tr id="optimizationResultsHeaders">
+                            <!-- Populated by JS -->
+                            <th>Total Trades</th>
+                            <th>CAGR (%)</th>
+                            <th>Max DD (%)</th>
+                            <th>Calmar Ratio</th>
+                            <th>Profit Factor</th>
+                            <th>Sharpe Ratio</th>
+                            <th>Sortino Ratio</th>
+                            <th>P-Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tabWalkForward" class="tab-content" style="gap: 12px;">
+            <!-- Top Controls Toolbar (Compact & Sleek) -->
+            <div style="background-color: var(--panel-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h3 style="margin: 0; color: var(--text-primary); font-size: 1.1rem; font-weight: 600;">Walk-Forward Optimization (WFO)</h3>
+                        <div style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 2px;">In-Sample Calibration & Out-of-Sample Validation Engine</div>
+                    </div>
+                    <button id="btnRunWalkForward" class="btn primary" style="width: auto; margin: 0; padding: 6px 18px; font-size: 0.9rem; height: 36px; display: inline-flex; align-items: center; gap: 6px;">
+                        <span>Run Walk-Forward</span>
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-light);">
+                    <div class="config-item" style="min-width: 140px;">
+                        <label style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.04em;">WFO Mode</label>
+                        <select id="wfoMode" class="btn secondary" style="width: 100%; padding: 5px 8px; font-size: 12px; height: 30px;">
+                            <option value="Rolling">Rolling (Fixed Train)</option>
+                            <option value="Anchored">Anchored (Expanding Train)</option>
+                        </select>
+                    </div>
+                    <div class="config-item" style="min-width: 110px;">
+                        <label style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.04em;">Train (Quarters)</label>
+                        <input type="number" id="wfoTrainQuarters" value="8" min="1" max="20" style="width: 100%; padding: 5px 8px; background: var(--bg-color); border: 1px solid var(--border); color: var(--text-primary); border-radius: 4px; font-size: 12px; height: 30px;">
+                    </div>
+                    <div class="config-item" style="min-width: 110px;">
+                        <label style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.04em;">Test (Quarters)</label>
+                        <input type="number" id="wfoTestQuarters" value="2" min="1" max="10" style="width: 100%; padding: 5px 8px; background: var(--bg-color); border: 1px solid var(--border); color: var(--text-primary); border-radius: 4px; font-size: 12px; height: 30px;">
+                    </div>
+                    <div class="config-item" style="min-width: 110px;">
+                        <label style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.04em;">Step (Quarters)</label>
+                        <input type="number" id="wfoStepQuarters" value="2" min="1" max="10" style="width: 100%; padding: 5px 8px; background: var(--bg-color); border: 1px solid var(--border); color: var(--text-primary); border-radius: 4px; font-size: 12px; height: 30px;">
+                    </div>
+                    <div class="config-item" style="min-width: 150px;">
+                        <label style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.04em;">Selection Objective</label>
+                        <select id="wfoObjective" class="btn secondary" style="width: 100%; padding: 5px 8px; font-size: 12px; height: 30px;">
+                            <option value="sharpe">Sharpe Ratio</option>
+                            <option value="net_pnl">Net Profit ($)</option>
+                            <option value="calmar">Calmar Ratio</option>
+                            <option value="profit_factor">Profit Factor</option>
+                            <option value="expectancy">Expectancy ($)</option>
+                            <option value="composite">Composite Robustness</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- In-Sample Tuned Parameters Table -->
+            <div style="background-color: var(--panel-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.05em;">
+                        Tuned In-Sample Parameters
+                    </div>
+                    <div style="color: var(--text-secondary); font-size: 0.82rem;">
+                        Grid Search Size per Window: <strong id="wfoTotalCombos" style="color: var(--cyan); font-family: monospace;">0</strong> combinations
+                    </div>
+                </div>
+                <div class="table-container" style="margin: 0; max-height: 260px; overflow-y: auto;">
+                    <table id="wfoInputTable" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;"><input type="checkbox" id="wfoSelectAll" checked></th>
+                                <th>Parameter</th>
+                                <th>Default</th>
+                                <th>Start</th>
+                                <th>End</th>
+                                <th>Step</th>
+                                <th>Combos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated dynamically from parameters -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Status Banner -->
+            <div id="wfoStatusBanner" style="display: none; margin-top: 15px; padding: 12px 16px; border-radius: 6px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); color: var(--cyan);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span id="wfoStatusText">Running Walk-Forward Optimization...</span>
+                    <span id="wfoStatusProgress" style="font-weight: bold; font-family: monospace;">0/0</span>
+                </div>
+            </div>
+
+            <!-- Walk-Forward Results Container -->
+            <div id="wfoResultsContainer" style="display: none; margin-top: 20px;">
+                <!-- 4 KPI Stat Cards -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div class="stat-card" style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span class="stat-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Stitched OOS Net Profit</span>
+                        <div class="stat-value" id="wfoOOSPnL" style="font-size: 1.6rem; font-weight: bold; color: var(--success); margin-top: 4px;">$0.00</div>
+                        <span id="wfoOOSCagr" style="font-size: 12px; color: var(--text-secondary);">CAGR: 0.00%</span>
+                    </div>
+                    <div class="stat-card" style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span class="stat-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Stitched OOS Sharpe & DD</span>
+                        <div class="stat-value" id="wfoOOSSharpe" style="font-size: 1.6rem; font-weight: bold; color: var(--text-primary); margin-top: 4px;">0.00</div>
+                        <span id="wfoOOSMaxDD" style="font-size: 12px; color: var(--danger);">Max DD: 0.00%</span>
+                    </div>
+                    <div class="stat-card" style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span class="stat-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Walk-Forward Efficiency (WFE)</span>
+                        <div class="stat-value" id="wfoWFEVal" style="font-size: 1.6rem; font-weight: bold; color: var(--cyan); margin-top: 4px;">0.0%</div>
+                        <span id="wfoWFESharpe" style="font-size: 12px; color: var(--text-secondary);">Sharpe WFE: 0.0%</span>
+                    </div>
+                    <div class="stat-card" style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span class="stat-label" style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Parameter Stability & Win Windows</span>
+                        <div class="stat-value" id="wfoStability" style="font-size: 1.6rem; font-weight: bold; color: var(--text-primary); margin-top: 4px;">0.0%</div>
+                        <span id="wfoProfitableWindows" style="font-size: 12px; color: var(--success);">Profitable Windows: 0.0%</span>
+                    </div>
+                </div>
+
+                <!-- Stitched OOS Cumulative Equity Curve -->
+                <h4 style="color: var(--text-primary); margin-bottom: 10px;">Stitched Out-Of-Sample (OOS) Equity Curve</h4>
+                <div class="chart-container" id="plotWFOEquityMain" style="height: 450px; margin-bottom: 25px;"></div>
+
+                <!-- Cycle-by-Cycle Breakdown Table -->
+                <h4 style="color: var(--text-primary); margin-bottom: 10px;">Cycle-by-Cycle Walk-Forward Performance</h4>
+                <div class="table-container">
+                    <table id="wfoCycleTable" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Cycle</th>
+                                <th>In-Sample Train</th>
+                                <th>Out-of-Sample Test</th>
+                                <th>Frozen Parameter(s)</th>
+                                <th>IS Sharpe</th>
+                                <th>IS PnL ($)</th>
+                                <th>OOS Sharpe</th>
+                                <th>OOS PnL ($)</th>
+                                <th>OOS Win %</th>
+                                <th>WFE (CAGR)</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated dynamically by JS stream -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabPermutation" class="tab-content">
+            <div class="config-panel" style="justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--text-primary);">Data Permutation Test</h3>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="color: var(--text-secondary);">Simulations:</label>
+                    <input type="number" id="permRuns" value="1000"
+                        style="width: 80px; padding: 5px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+                    <button id="btnRunPermutation" class="btn primary" style="width: auto; margin: 0;">Run
+                        Permutation</button>
+                </div>
+            </div>
+
+            <div id="permutationResults"
+                style="display: none; margin-top: 20px; background: var(--bg-secondary); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="stat-card">
+                        <span class="stat-label">Original Strategy PnL</span>
+                        <span class="stat-value" id="permOrigPnL">-</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Permuted Data PnL (Median)</span>
+                        <span class="stat-value" id="permMedianPnL">-</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Permuted Runs Profitable</span>
+                        <span class="stat-value" id="permProfitable">-</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Permuted Runs Beating Original</span>
+                        <span class="stat-value" id="permBeating">-</span>
+                    </div>
+                </div>
+
+                <div
+                    style="margin-top: 20px; text-align: center; padding: 20px; background: var(--bg-tertiary); border-radius: 8px;">
+                    <h2 style="margin: 0; color: var(--text-secondary); font-size: 1.2rem;">P-Value (Probability edge is
+                        random)</h2>
+                    <div id="permPValue"
+                        style="font-size: 3rem; font-weight: bold; margin-top: 10px; color: var(--text-primary);">-
+                    </div>
+                    <div id="permVerdict" style="margin-top: 10px; font-weight: bold; font-size: 1.1rem;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabMultiMarket" class="tab-content">
+            <div class="config-panel" style="display: flex; flex-direction: column; gap: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; color: var(--text-primary);">Multi-Market Comparison</h3>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="mmPresetDropdown" class="btn secondary"
+                            style="min-width: 200px; width: auto; font-size: 12px; padding: 6px 10px; text-align: left; height: 32px; box-sizing: border-box; margin: 0;"></select>
+                        <button id="btnLoadMMPreset" class="btn secondary"
+                            style="width: auto; margin: 0; height: 32px; line-height: 1;">Load</button>
+                        <button id="btnRunMultiMarket" class="btn primary"
+                            style="width: auto; margin: 0; height: 32px; line-height: 1;">Run Comparison</button>
+                    </div>
+                </div>
+                <div
+                    style="display: flex; justify-content: flex-end; align-items: center; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 15px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btnSelectSecondary" class="btn outline" style="width: auto; margin: 0;">Select
+                            Additional Market(s)</button>
+                        <button id="btnSaveMMPreset" class="btn secondary"
+                            style="width: auto; margin: 0; height: 32px; line-height: 1;">Save</button>
+                        <button id="btnDeleteMMPreset" class="btn secondary"
+                            style="width: auto; margin: 0; color: var(--danger); height: 32px; line-height: 1;">Del</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="multiMarketSelectedFiles"
+                style="margin-top: 10px; color: var(--text-secondary); font-size: 0.9rem;">
+                No additional markets selected.
+            </div>
+
+            <div id="multiMarketResults" style="display: none; margin-top: 20px;">
+                <h4 style="color: var(--text-primary); margin-bottom: 10px;">Multi-Market Translation</h4>
+                <div class="table-container">
+                    <table id="mmCoreTable" style="width: 100%;">
+                        <thead>
+                            <tr id="mmCoreHeaders">
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div id="ddCorrContainer" style="margin-top: 10px; color: var(--text-primary); font-weight: bold;">
+                </div>
+
+                <div id="mmYearlyContainer" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <div id="tabMonteCarlo" class="tab-content">
+            <div class="config-panel" style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; padding: 16px 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">Path Robustness (Stationary Block Bootstrap)</h3>
+                        <p style="margin: 3px 0 0 0; font-size: 0.8rem; color: var(--text-secondary);">Politis-Romano (1994) block resampling preserving serial correlation and volatility clustering.</p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
+                    <div class="config-item" style="flex: 1 1 240px; min-width: 200px;">
+                        <label style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 5px;">Resampling Method</label>
+                        <select id="bootMethod" style="background-color: var(--panel-bg-2); border: 1px solid var(--border-strong); color: #fff; padding: 0 10px; border-radius: 4px; height: 38px; box-sizing: border-box; width: 100%;">
+                            <option value="both">Both (Stationary + IID Control)</option>
+                            <option value="stationary">Stationary Block Bootstrap (Politis-Romano)</option>
+                            <option value="iid">IID Resampling (Control)</option>
+                        </select>
+                    </div>
+                    <div class="config-item" style="flex: 1 1 220px; min-width: 190px;">
+                        <label style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 5px;">Block Length (b)</label>
+                        <select id="bootBlockMode" style="background-color: var(--panel-bg-2); border: 1px solid var(--border-strong); color: #fff; padding: 0 10px; border-radius: 4px; height: 38px; box-sizing: border-box; width: 100%;">
+                            <option value="auto">Auto (Patton-Politis-White 2009)</option>
+                            <option value="5">Custom (5 Days)</option>
+                            <option value="10">Custom (10 Days)</option>
+                            <option value="20">Custom (20 Days)</option>
+                            <option value="30">Custom (30 Days)</option>
+                        </select>
+                    </div>
+                    <div class="config-item" style="flex: 0 0 120px; min-width: 100px;">
+                        <label style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 5px;">Simulations</label>
+                        <input type="number" id="bootSims" value="5000" min="100" max="50000" style="background-color: var(--panel-bg-2); border: 1px solid var(--border-strong); color: #fff; padding: 0 10px; border-radius: 4px; height: 38px; width: 100%; box-sizing: border-box;">
+                    </div>
+                    <div class="config-item" style="flex: 0 0 85px; min-width: 75px;">
+                        <label style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 5px;">Seed</label>
+                        <input type="number" id="bootSeed" value="42" style="background-color: var(--panel-bg-2); border: 1px solid var(--border-strong); color: #fff; padding: 0 10px; border-radius: 4px; height: 38px; width: 100%; box-sizing: border-box;">
+                    </div>
+                    <div class="config-item" style="flex: 0 0 auto; min-width: auto;">
+                        <button id="btnRunBootstrap" class="btn primary" style="height: 38px; padding: 0 22px; font-weight: 600; font-size: 0.88rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin: 0; cursor: pointer;">Run Bootstrap Diagnostics</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Path Robustness Diagnostic Header -->
+            <div id="bootDiagnosticBanner" style="display: none; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">Path Robustness Heuristic</span>
+                        <h3 id="bootRatingBadge" style="margin: 4px 0 0 0; font-size: 1.4rem;">--</h3>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">Dependence DD Delta (95th %)</span>
+                        <h3 id="bootPenaltyBadge" style="margin: 4px 0 0 0; font-size: 1.4rem; color: var(--danger);">--</h3>
+                    </div>
+
+                    <div style="text-align: right;">
+                        <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">Expected Block Length</span>
+                        <h3 id="bootBlockBadge" style="margin: 4px 0 0 0; font-size: 1.4rem; color: var(--cyan);">--</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tripartite Comparison Table -->
+            <div id="bootResultsContainer" style="display: none; margin-bottom: 20px;">
+                <div class="table-container">
+                    <table class="stats-matrix" id="bootComparisonTable" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Diagnostic Metric</th>
+                                <th>Observed Baseline</th>
+                                <th>IID Bootstrap (Control)</th>
+                                <th>Stationary Block Bootstrap</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bootTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Fan Chart -->
+            <div class="chart-container" id="plotBootstrapFanChart" style="height: 520px; display: none; margin-bottom: 20px;"></div>
+        </div>
+
+
+        <div id="tabDistribution" class="tab-content">
+            <div class="config-panel">
+                <div class="config-item">
+                    <label>Sampling Method</label>
+                    <select id="distMethod">
+                        <option value="Bootstrap (Resample)">Bootstrap (Resample)</option>
+                        <option value="Permutation (Shuffle)">Permutation (Shuffle)</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>Metric to Analyze</label>
+                    <select id="distMetric">
+                        <option value="Net Profit">Net Profit</option>
+                        <option value="Max Drawdown">Max Drawdown</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>Number of Simulations</label>
+                    <input type="number" id="distSims" value="10000" min="100" max="100000">
+                </div>
+                <div class="config-item">
+                    <label>Number of Trades (%)</label>
+                    <input type="number" id="distPct" value="100" min="10" max="100">
+                </div>
+                <div class="config-item" style="display: flex; align-items: flex-end;">
+                    <button id="btnRunDist" class="btn primary" style="width: 100%;">Run Distribution</button>
+                </div>
+            </div>
+            <div class="chart-container" id="plotDistribution" style="height: 500px; display: none;"></div>
+        </div>
+
+        <div id="tabHeatmap" class="tab-content">
+            <div class="config-panel"
+                style="margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px; display: flex; align-items: center;">
+                <h3 style="margin: 0; margin-right: 20px;">Monthly Returns (%)</h3>
+                <div class="btn-group">
+                    <button class="btn primary" id="btnHeatmapAll">All Trades</button>
+                    <button class="btn" id="btnHeatmapLong">Long Trades</button>
+                    <button class="btn" id="btnHeatmapShort">Short Trades</button>
+                </div>
+            </div>
+            <div class="table-container" id="heatmapContainer"></div>
+        </div>
+
+        <div id="tabMatrix" class="tab-content">
+            <h3>Strategy Statistics Matrix</h3>
+            <div class="table-container" id="matrixContainer"></div>
+        </div>
+
+        <div id="tabBestWorst" class="tab-content">
+            <h3 style="margin-bottom: 5px;">Best and worst moments</h3>
+            <p style="color: var(--text-secondary); margin-top: 0; font-size: 0.9rem; margin-bottom: 20px;">Best and
+                worst days/weeks/months in terms of the strategy's returns.</p>
+
+            <div class="config-panel"
+                style="margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+                <div class="btn-group">
+                    <button class="btn primary" id="btnBwDays">Days</button>
+                    <button class="btn" id="btnBwWeeks">Weeks</button>
+                    <button class="btn" id="btnBwMonths">Months</button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <h4 style="margin-bottom: 10px;">Best <span id="bwLabelBest">days</span> (%)</h4>
+                <div id="bwBestContainer"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
+                </div>
+            </div>
+
+            <div>
+                <h4 style="margin-bottom: 10px;">Worst <span id="bwLabelWorst">days</span> (%)</h4>
+                <div id="bwWorstContainer"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
+                </div>
+            </div>
+        </div>
+
+        <div id="tabDrawdownAnalysis" class="tab-content">
+            <h3 style="margin-bottom: 5px;">Drawdown analysis</h3>
+            <p style="color: var(--text-secondary); margin-top: 0; font-size: 0.9rem; margin-bottom: 20px;">Analysis of
+                the strategy's deepest drawdowns and the number of days it took to recover.</p>
+
+            <div style="display: flex; flex-direction: column; gap: 30px;">
+                <div class="table-container" style="width: 100%;">
+                    <table id="drawdownTable">
+                        <thead>
+                            <tr>
+                                <th>Depth (%)</th>
+                                <th>Days</th>
+                                <th>Start date</th>
+                                <th>End date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="chart-container" id="plotDrawdownAnalysis" style="width: 100%; height: 500px; margin: 0;">
+                </div>
+            </div>
+        </div>
+
+        <div id="tabTradingTime" class="tab-content">
+            <h3 style="margin-bottom: 5px;">Trading time distribution</h3>
+            <p style="color: var(--text-secondary); margin-top: 0; font-size: 0.9rem; margin-bottom: 20px;">Distribution
+                of the strategy's trades between Asian (17:00-03:00 ET), European (03:00-08:00 ET) and American
+                (08:00-17:00 ET) sessions, as well as the accumulated return in each one.</p>
+
+            <div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+                <div class="chart-container" id="plotSessionDonut" style="flex: 1; min-width: 300px; margin-bottom: 0;">
+                </div>
+                <div id="sessionBoxes"
+                    style="flex: 1; display: flex; flex-direction: column; gap: 15px; min-width: 300px; justify-content: center;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; flex: 1;">
+                <div class="config-panel" style="margin-bottom: 5px; border-bottom: none; padding-bottom: 0;">
+                    <div class="btn-group"
+                        style="width: 100%; display: flex; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 6px; padding: 4px;">
+                        <button class="btn time-seg-btn active-seg" id="btnDistVolume"
+                            onclick="window.updateTimeDistChart('volume', this)"
+                            style="flex: 1; border-radius: 4px; border: none; background: transparent; color: var(--text-secondary);">Trade
+                            distribution by time</button>
+                        <button class="btn time-seg-btn" id="btnDistPnLEntry"
+                            onclick="window.updateTimeDistChart('pnl_entry', this)"
+                            style="flex: 1; border-radius: 4px; border: none; background: transparent; color: var(--text-secondary);">PnL
+                            by entry time</button>
+                        <button class="btn time-seg-btn" id="btnDistPnLExit"
+                            onclick="window.updateTimeDistChart('pnl_exit', this)"
+                            style="flex: 1; border-radius: 4px; border: none; background: transparent; color: var(--text-secondary);">PnL
+                            by exit time</button>
+                    </div>
+                </div>
+                <div class="config-panel" style="margin-bottom: 10px; border-bottom: none; padding-bottom: 0;">
+                    <div class="btn-group"
+                        style="width: 100%; display: flex; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 6px; padding: 4px;">
+                        <button class="btn time-seg-btn" id="btnDistPF"
+                            onclick="window.updateTimeDistChart('pf_total', this)"
+                            style="flex: 1; border-radius: 4px; border: none; background: transparent; color: var(--text-secondary);">Profit
+                            Factor</button>
+                        <button class="btn time-seg-btn" id="btnDistPFLong"
+                            onclick="window.updateTimeDistChart('pf_long', this)"
+                            style="flex: 1; border-radius: 4px; border: none; background: transparent; color: var(--text-secondary);">P.F.
+                            (L)</button>
+                        <button class="btn time-seg-btn" id="btnDistPFShort"
+                            onclick="window.updateTimeDistChart('pf_short', this)"
+                            style="flex: 1; border-radius: 4px; border: none; background: transparent; color: var(--text-secondary);">P.F.
+                            (S)</button>
+                    </div>
+                </div>
+                <div class="chart-container" id="plotTimeDistribution"
+                    style="width: 100%; min-height: 250px; margin: 0; flex: 1;"></div>
+            </div>
+
+            <div style="display: flex; gap: 20px; margin-top: 20px; flex-direction: column;">
+                <div class="panel" style="flex: 1; min-width: 300px; padding: 15px; position: relative;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 1rem; color: #fff;">Trade time performance</h3>
+                        <select id="tradeTimeSelect" onchange="window.updateScatterTimeChart()"
+                            style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">
+                            <option value="entry">Entry time</option>
+                            <option value="exit">Exit time</option>
+                        </select>
+                    </div>
+                    <div id="plotTradeTimePerformance" style="width: 100%; height: 300px;"></div>
+                </div>
+
+                <div class="panel" style="flex: 1; min-width: 300px; padding: 15px;">
+                    <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: #fff;">Trade duration performance</h3>
+                    <div id="plotTradeDurationPerformance" style="width: 100%; height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabDayOfWeek" class="tab-content">
+            <h3 style="margin-bottom: 5px;">Return distribution by day of the week</h3>
+            <p style="color: var(--text-secondary); margin-top: 0; font-size: 0.9rem; margin-bottom: 20px;">The chart
+                shows the accumulated return generated by the strategy in each week's day, separately. Below, the number
+                of days with trading activity for each of the week's days.</p>
+
+            <div class="chart-container" id="plotDayOfWeekCurves" style="width: 100%; flex: 1; margin-bottom: 20px;">
+            </div>
+
+            <div id="dowBoxes"
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; width: 100%;">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar Trade Viewer Modal -->
+    <div id="calendarModal" class="modal-overlay" style="display: none;">
+        <div class="calendar-modal-content">
+            <div id="calendarTopHeader"
+                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 20px;">
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <button class="nav-btn"
+                        onclick="document.getElementById('calendarModal').style.display='none'; document.getElementById('drawings-svg').innerHTML='';"
+                        style="border-color: transparent; background: rgba(255,82,82,0.1); color: var(--danger); font-size: 1.6rem; width: 36px; height: 36px; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: 6px;"
+                        title="Close">&times;</button>
+
+                    <div class="calendar-stats-row" style="display: flex; gap: 15px; margin: 0;">
+                        <div class="stat-box"><span>Return</span><b id="calStatReturn">0.00%</b></div>
+                        <div class="stat-box"><span>Drawdown</span><b id="calStatDD">0.00%</b></div>
+                        <div class="stat-box"><span>PF</span><b id="calStatPF">0.00</b></div>
+                        <div class="stat-box"><span>PF (L)</span><b id="calStatPFL">0.00</b></div>
+                        <div class="stat-box"><span>PF (S)</span><b id="calStatPFS">0.00</b></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 15px; white-space: nowrap; margin-left: auto;">
+                    <button class="nav-btn" onclick="prevMonth()">&lt;</button>
+                    <h2 id="calMonthTitle"
+                        style="margin: 0; color: #fff; min-width: 140px; text-align: center; font-size: 1.3rem;">Month
+                        Year</h2>
+                    <button class="nav-btn" onclick="nextMonth()">&gt;</button>
+                </div>
+            </div>
+
+            <div id="calendarViewArea" style="flex: 1; display: flex; flex-direction: column;">
+                <div class="calendar-weekdays">
+                    <div>Sun</div>
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
+                    <div>Week PnL</div>
+                </div>
+                <div id="calendarGrid" class="calendar-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Right: Chart Viewer -->
+            <div id="dayChartArea"
+                style="display: none; flex: 1; background: #080c12; border-radius: 8px; border: 1px solid var(--border); flex-direction: column; overflow: hidden; position: relative; margin-top: -20px; margin-left: -20px; margin-right: -20px; margin-bottom: -20px;">
+                <div id="dayChartHeader"
+                    style="padding: 10px 15px; background: #0d121b; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                        <button class="nav-btn" onclick="backToCalendar()" style="width: auto; padding: 0 10px;">&larr;
+                            Calendar</button>
+                        <button class="nav-btn" id="btnPrevDay" onclick="prevDay()" style="display: none;">&lt;</button>
+                        <h3 id="dayChartTitle"
+                            style="margin: 0; font-size: 15px; color: #dbe4f0; display: flex; align-items: center; line-height: 1;">
+                            Select a day</h3>
+                        <button class="nav-btn" id="btnNextDay" onclick="nextDay()" style="display: none;">&gt;</button>
+                    </div>
+
+                    <div id="dayTradesContainer"
+                        style="display: flex; gap: 10px; overflow-x: auto; flex: 1; align-items: center; padding-bottom: 4px;">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 15px; flex-shrink: 0;">
+                        <div id="dayChartStats"
+                            style="display:none; font-size: 13px; font-weight: 800; letter-spacing: 1px; color: rgba(255,255,255,0.4);">
+                            TRADES <b id="dayChartTrades" style="color: #dbe4f0; margin: 0 4px;">0</b>
+                            DAY P&amp;L <b id="dayChartPnl" style="margin-left: 4px;">$0.00</b>
+                        </div>
+                        <button class="nav-btn"
+                            onclick="document.getElementById('calendarModal').style.display='none'; document.getElementById('drawings-svg').innerHTML='';"
+                            style="border-color: transparent; background: rgba(255,82,82,0.1); color: var(--danger); font-size: 1.6rem; width: 36px; height: 36px; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: 6px;"
+                            title="Close">&times;</button>
+                    </div>
+                </div>
+
+                <div
+                    style="flex: 1; display: grid; grid-template-rows: minmax(200px, 6fr) 1px minmax(80px, 1.5fr); min-height: 0;">
+                    <div style="position: relative; min-height: 0; height: 100%;">
+                        <div id="price-chart" style="width: 100%; height: 100%;"></div>
+                        <div id="drawings-container"
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; overflow: hidden;">
+                        </div>
+                        <svg id="drawings-svg"
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 11; pointer-events: none; overflow: hidden;"></svg>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.07);"></div>
+                    <div style="position: relative; min-height: 0;">
+                        <div id="volume-chart" style="width: 100%; height: 100%;"></div>
+                    </div>
+                </div>
+
+                <div id="dayChartEmpty" class="day-chart-empty">Click a day on the calendar to view price action &
+                    trades.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" style="display: none;" class="loading-overlay">
+        <h2>Running Analysis...</h2>
+        <p>Crunching Monte Carlo simulations...</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='lightweight-charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=42"></script>
+    <script>
+        function openTab(evt, tabName, tabDisplayName) {
+            var i, tabcontent, tablinks;
+
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+                tabcontent[i].style.flex = "none";
+            }
+
+            if (tabName !== 'all') {
+                var activeTab = document.getElementById(tabName);
+                if (activeTab) {
+                    activeTab.style.display = "flex";
+                    activeTab.style.flexDirection = "column";
+                    activeTab.style.flex = "1";
+                    activeTab.style.width = "100%";
+                }
+                document.getElementById('metricsGrid').style.display = "none";
+                if (tabName === 'tabEquity') {
+                    document.getElementById('equityControls').style.display = 'flex';
+                } else {
+                    document.getElementById('equityControls').style.display = 'none';
+                }
+            } else {
+                document.getElementById('metricsGrid').style.display = "block";
+                document.getElementById('equityControls').style.display = 'none';
+                var tabEq = document.getElementById('tabEquity');
+                if (tabEq) {
+                    tabEq.style.display = "flex";
+                    tabEq.style.flexDirection = "column";
+                    tabEq.style.flex = "1";
+                    tabEq.style.width = "100%";
+                }
+                const btnAll = document.getElementById('btnShowAll');
+                if (btnAll) btnAll.click();
+            }
+
+            tablinks = document.getElementsByClassName("tab-link");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            if (evt && evt.currentTarget) {
+                evt.currentTarget.className += " active";
+            }
+
+            if (tabDisplayName) {
+                if (tabName === 'all') {
+                    document.getElementById('activeTabName').innerText = "";
+                } else {
+                    document.getElementById('activeTabName').innerText = "- " + tabDisplayName;
+                }
+            }
+
+            // Tab-specific re-render when switching tabs
+            if (window.lastBacktestData) {
+                if (tabName === 'tabMatrix' && typeof window.renderMatrix === 'function') {
+                    window.renderMatrix(window.lastBacktestData.metrics, window.lastBacktestData.long_metrics, window.lastBacktestData.short_metrics);
+                } else if (tabName === 'tabTradingTime' && typeof window.renderTradingTimeDist === 'function' && window.lastBacktestData.trading_time_dist) {
+                    window.renderTradingTimeDist(window.lastBacktestData.trading_time_dist);
+                } else if (tabName === 'tabDayOfWeek' && typeof window.renderDayOfWeekDist === 'function' && window.lastBacktestData.dow_dist) {
+                    window.renderDayOfWeekDist(window.lastBacktestData.dow_dist);
+                } else if (tabName === 'tabBestWorst' && typeof window.renderBestWorst === 'function' && window.lastBestWorst) {
+                    window.renderBestWorst(window.lastBestWorst, window.currentBwPeriod || 'Days');
+                } else if (tabName === 'tabDrawdownAnalysis' && typeof window.renderDrawdownAnalysis === 'function' && window.lastBacktestData.dd_analysis_table) {
+                    window.renderDrawdownAnalysis(window.lastBacktestData.dd_analysis_table, window.lastBacktestData.dd_analysis_curve);
+                }
+            }
+
+            // Trigger Plotly responsive resize
+            setTimeout(() => {
+                const activeContainer = (tabName === 'all' || tabName === 'tabEquity') ? document.getElementById('tabEquity') : document.getElementById(tabName);
+                if (activeContainer) {
+                    const plotDivs = activeContainer.querySelectorAll('.js-plotly-plot');
+                    plotDivs.forEach(div => {
+                        try { Plotly.Plots.resize(div); } catch (e) {}
+                    });
+                }
+                window.dispatchEvent(new Event('resize'));
+            }, 60);
+        }
+
+        function toggleTabsDropdown() {
+            document.getElementById('tabsDropdownContent').classList.toggle('show');
+            document.body.classList.toggle('drawer-open');
+            window.dispatchEvent(new Event('resize'));
+            setTimeout(() => window.dispatchEvent(new Event('resize')), 310);
+        }
+
+        function toggleSidebar() {
+            var sidebar = document.getElementById('sidebar');
+            if (sidebar.style.display === 'none') {
+                sidebar.style.display = 'flex';
+            } else {
+                sidebar.style.display = 'none';
+            }
+            window.dispatchEvent(new Event('resize'));
+            setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+        }
+    </script>
+</body>
+
+</html>

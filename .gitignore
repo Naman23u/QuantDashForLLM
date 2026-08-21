@@ -1,0 +1,41 @@
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Large Datasets & Market Data
+Market_Data/
+*.parquet
+!tests/fixtures/*.parquet
+*.feather
+*.h5
+*.csv
+
+
+# Build Artifacts & Desktop Binaries
+build/
+dist/
+*.exe
+*.pkg
+*.toc
+*.zip
+
+# Logs & Scratch Scripts
+*.log
+scratch_*.py
+scratch/
+
+
+
+# OS / Local Agent Configurations
+.DS_Store
+Thumbs.db
+.agents/

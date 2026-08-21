@@ -1,0 +1,82 @@
+# QuantDash: LLM System Briefing & Strategy Contract Specification
+
+QuantDash is an institutional-grade quantitative backtesting, optimization, and research platform built for CME equity futures (ES, NQ, YM, RTY) with 1-minute Databento intraday data.
+
+## System Architecture
+
+```
+QuantDashForLLM/
+├── app.py                      # Flask backend API & streaming JSONL engine
+├── worker_engine.py            # Isolated 10-core parallel ProcessPool executor
+├── quant_metrics.py            # Statistical metrics, CME calendar & Numba MC engine
+├── file_dialog_helper.py       # Cross-platform desktop file selection
+├── desktop_app.py              # PyWebView native desktop wrapper
+├── templates/index.html        # Dashboard layout with 12 analytical tabs
+├── static/
+│   ├── app.js                  # Frontend controller & Plotly/Lightweight chart renderers
+│   ├── style.css               # Monospace dark financial terminal UI
+│   ├── lightweight-charts.js   # TradingView interactive canvas charts
+│   └── plotly-2.32.0.min.js    # Multi-path Monte Carlo & Distribution charting
+└── Strategy_Files/
+    ├── template_strategy.py    # Blank canonical strategy implementation
+    └── type_1_intraday_volatility_breakout.py # Reference breakout system
+```
+
+## Strategy Implementation Contract
+
+When generating or editing trading strategies for QuantDash, AI models MUST follow this exact contract:
+
+### 1. Function Signatures
+
+```python
+def run_backtest(data: Union[str, pd.DataFrame], params: dict = None) -> dict:
+    """
+    Executes intraday backtest over the provided dataset.
+    Returns:
+    {
+        "trades": [
+            {
+                "entry_time": "2024-01-02 09:35:00",
+                "exit_time": "2024-01-02 11:20:00",
+                "direction": "long", # or "short"
+                "entry_price": 4750.25,
+                "exit_price": 4760.50,
+                "stop_price": 4745.00,
+                "net_pnl": 506.74,
+                "commission": 5.76,
+                "slippage": 25.00,
+                "mfe_price": 4765.00, # optional
+                "mae_price": 4748.00  # optional
+            }, ...
+        ],
+        "metrics": { ... } # Generated via quant_metrics.calculate_stats(trades_df, capital, rf)
+    }
+    """
+
+def run_data_permutation(data: Union[str, pd.DataFrame], params: dict = None, n_permutations: int = 1000) -> dict:
+    """
+    Evaluates strategy significance by randomly permuting calendar trading day order.
+    Returns:
+    {
+        "original_pnl": float,
+        "median_pnl": float,
+        "pct_profitable": float,
+        "pct_beating_original": float,
+        "p_value": float
+    }
+    """
+```
+
+### 2. Mandatory Realism Constraints
+1. **Tick Rounding**: All prices must be rounded using `round_to_tick(price, tick_size=0.25)`.
+2. **Lagged Indicators**: All technical indicators (ATR, Moving Averages, Bollinger Bands) must be shifted by 1 bar (`.shift(1)`) to strictly prevent lookahead bias.
+3. **Immediate Same-Bar Stop Validation**: Check if the entry bar's Low (for Longs) or High (for Shorts) violates the stop loss immediately upon fill.
+4. **Execution Costs**: Slippage must be deducted on both entry and exit (`2 * SLIPPAGE_POINTS * Point_Value`), plus standard exchange commissions.
+5. **CME Calendar Session**: 18:00 ET (T-1) to 17:00 ET (T). Excludes CME market holidays and weekends using `pandas_market_calendars`.
+
+## Statistical Engine (`quant_metrics.py`)
+- **Sharpe & Sortino**: Annualized against CME trading days with risk-free rate subtraction.
+- **Ulcer Index & UPI (Martin Ratio)**: Excess CAGR divided by quadratic drawdown severity.
+- **K-Ratio**: Linear regression slope of cumulative equity curve divided by slope standard error.
+- **Monte Carlo Ruin & Dispersion**: Numba-compiled parallel bootstrapping and permutation engine.
+- **Walk-Forward Analysis (WFO)**: Rolling/Anchored in-sample grid calibration with continuous out-of-sample (OOS) equity stitching and Walk-Forward Efficiency (WFE) ratios.

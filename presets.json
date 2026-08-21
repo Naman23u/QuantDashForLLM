@@ -1,0 +1,8 @@
+{
+    "presets": {
+        "Default Template Strategy": {
+            "data": [],
+            "script": "Strategy_Files/type_1_intraday_volatility_breakout.py"
+        }
+    }
+}
